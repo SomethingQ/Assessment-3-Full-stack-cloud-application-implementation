@@ -1,0 +1,75 @@
+// Prisma schema for the Phoneme Activity Builder backend.
+//
+// Design notes (see nextjs/lab-instructions.txt for rationale):
+// - Only the teacher-authored word list, activity metadata and generation
+//   settings are persisted. Static reference data such as the IPA-to-hint
+//   lookup table lives in the frontend (lib/helpers/exportFile.ts) and is
+//   NOT duplicated here.
+// - The Word Search grid layout is generated on demand from the word list,
+//   so only the word list itself needs to be stored, not the grid.
+// - Phonemes are stored as a Postgres text array (String[]) so each entry
+//   can hold a multi-character IPA symbol (e.g. "tʃ", "dʒ") rather than a
+//   single character.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActivityType {
+  WORDLE
+  WORD_SEARCH
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Activity {
+  id         String       @id @default(cuid())
+  name       String
+  type       ActivityType
+  difficulty Difficulty   @default(MEDIUM)
+  showHints  Boolean      @default(true)
+
+  // Wordle-only setting (number of guesses allowed).
+  numGuesses Int?
+
+  // Word Search-only settings (grid dimensions).
+  rows       Int?
+  cols       Int?
+
+  words      Word[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("activities")
+}
+
+model Word {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  // Ordered phoneme units. Each unit may be more than one character
+  // (e.g. IPA digraphs like "tʃ"), so this is stored as a text array
+  // rather than splitting into single characters.
+  phonemes   String[]
+  english    String?
+
+  // Display/solve order of the word within the activity's word list.
+  position   Int      @default(0)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([activityId])
+  @@map("words")
+}
