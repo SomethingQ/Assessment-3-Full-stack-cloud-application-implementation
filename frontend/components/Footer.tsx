@@ -7,7 +7,7 @@ export default function Footer() {
           CSS.
         </p>
         <p>
-          <strong>Student Name:</strong> Charles Hatman{" | "}
+          <strong>Student Name:</strong> Abdulmelik Al-Mashhadani{" | "}
           <strong>Student Number:</strong> 21992617
         </p>
       </div>

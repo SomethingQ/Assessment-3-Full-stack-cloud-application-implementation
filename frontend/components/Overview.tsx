@@ -13,7 +13,7 @@ export default function Overview() {
           </h2>
 
           <p className="text-lg leading-8 text-slate-600 dark:text-slate-300">
-            <strong>Student Name:</strong> Charles Hatman
+            <strong>Student Name:</strong> Abdulmelik Al-Mashhadani
           </p>
           <p className="text-lg leading-8 text-slate-600 dark:text-slate-300">
             <strong>Student Number:</strong> 21992617
