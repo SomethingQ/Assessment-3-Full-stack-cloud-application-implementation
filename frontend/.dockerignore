@@ -5,3 +5,8 @@ npm-debug.log*
 .env.*
 !.env.example
 .git
+playwright-report
+test-results
+blob-report
+lighthouse-reports
+*.tsbuildinfo

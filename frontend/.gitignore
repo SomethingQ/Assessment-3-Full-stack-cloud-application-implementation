@@ -13,6 +13,14 @@
 # testing
 /coverage
 
+# playwright
+/playwright-report
+/test-results
+/blob-report
+
+# lighthouse
+/lighthouse-reports
+
 # next.js
 /.next/
 /out/
