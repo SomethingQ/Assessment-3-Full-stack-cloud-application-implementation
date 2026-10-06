@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -9,6 +10,7 @@ const links = [
   { to: "/wordsearch", label: "Word Search" },
   { to: "/wordle", label: "Wordle" },
   { to: "/activities", label: "Activities" },
+  { to: "/dashboard", label: "Dashboard" },
   { to: "/about", label: "About" },
   { to: "/settings", label: "Settings" },
 ];
@@ -51,7 +53,7 @@ export default function Navbar() {
           onClick={() => setIsMobileMenuOpen((open) => !open)}
           className="rounded-md bg-white p-2 hover:cursor-pointer hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 md:hidden"
         >
-          <img src="/kebab-icon.png" alt="" className="h-5 w-5" />
+          <Image src="/kebab-icon.png" alt="" width={20} height={20} className="h-5 w-5" />
         </button>
 
         <div className="hidden gap-6 md:flex">

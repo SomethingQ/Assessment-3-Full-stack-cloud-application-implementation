@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { downloadHTML } from "@/lib/helpers/exportFile";
 import { generateWordleHTML } from "@/lib/helpers/wordleBuilder";
+import { recordGenerationAttempt } from "@/lib/instrumentation";
 
 interface WordleFormValues {
   phonemeWord: string;
@@ -20,6 +21,7 @@ interface WordleFormValues {
 
 export default function WordleBuilder() {
   const [html, setHtml] = useState("");
+  const [generateError, setGenerateError] = useState("");
 
   const [savedActivities, setSavedActivities] = useState<ApiActivity[]>([]);
   const [selectedActivityId, setSelectedActivityId] = useState("");
@@ -56,12 +58,18 @@ export default function WordleBuilder() {
       const word = full.words.find((w) => w.id === selectedWordId);
       if (!word) throw new Error("Selected word could not be found");
 
-      const generated = generateWordleHTML({
-        targetPhonemes: word.phonemes,
-        targetEnglish: word.english ?? "",
-        numGuesses: full.numGuesses ?? 6,
-        showHints: full.showHints,
-      });
+      const generated = await recordGenerationAttempt(
+        "WORDLE",
+        "SAVED",
+        () =>
+          generateWordleHTML({
+            targetPhonemes: word.phonemes,
+            targetEnglish: word.english ?? "",
+            numGuesses: full.numGuesses ?? 6,
+            showHints: full.showHints,
+          }),
+        { activityId: full.id, wordCount: word.phonemes.length },
+      );
       setHtml(generated);
     } catch (err) {
       setSavedError(err instanceof Error ? err.message : "Failed to generate from saved activity");
@@ -70,25 +78,38 @@ export default function WordleBuilder() {
     }
   }
 
-  function handleGenerateWordle({
+  async function handleGenerateWordle({
     phonemeWord,
     englishWord,
     numGuesses,
     showHints,
   }: WordleFormValues) {
-    const generated = generateWordleHTML({
-      targetPhonemes: phonemeWord.trim() ? phonemeWord.trim().split(/\s+/) : [],
-      targetEnglish: englishWord,
-      numGuesses: Number(numGuesses) || 6,
-      showHints,
-    });
-    setHtml(generated);
+    setGenerateError("");
+    const targetPhonemes = phonemeWord.trim() ? phonemeWord.trim().split(/\s+/) : [];
+    try {
+      const generated = await recordGenerationAttempt(
+        "WORDLE",
+        "BUILDER",
+        () =>
+          generateWordleHTML({
+            targetPhonemes,
+            targetEnglish: englishWord,
+            numGuesses: Number(numGuesses) || 6,
+            showHints,
+          }),
+        { wordCount: targetPhonemes.length },
+      );
+      setHtml(generated);
+    } catch (err) {
+      setHtml("");
+      setGenerateError(err instanceof Error ? err.message : "Failed to generate Wordle");
+    }
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    handleGenerateWordle({
+    void handleGenerateWordle({
       phonemeWord: String(formData.get("phonemeWord") ?? ""),
       englishWord: String(formData.get("englishWord") ?? ""),
       numGuesses: String(formData.get("numGuesses") ?? ""),
@@ -97,7 +118,7 @@ export default function WordleBuilder() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-7xl flex-col items-center space-y-6 px-6 py-20">
+    <main className="mx-auto flex min-h-screen max-w-7xl flex-col items-center space-y-6 px-6 py-20">
       <section className="w-full rounded-2xl backdrop-blur">
         <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-5xl">
           Wordle Game generator
@@ -111,27 +132,31 @@ export default function WordleBuilder() {
       </section>
       <section className="w-full rounded-2xl py-6 backdrop-blur">
         <form onSubmit={handleSubmit} className="flex flex-col space-y-4 text-start">
-          <label>Phoneme Word</label>
+          <label htmlFor="wordle-phoneme-word">Phoneme Word</label>
           <textarea
+            id="wordle-phoneme-word"
             name="phonemeWord"
             placeholder="Enter a phoneme word"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           />
-          <label>English Word</label>
+          <label htmlFor="wordle-english-word">English Word</label>
           <textarea
+            id="wordle-english-word"
             name="englishWord"
             placeholder="Enter a word"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           />
-          <label>Attempts</label>
+          <label htmlFor="wordle-num-guesses">Attempts</label>
           <input
+            id="wordle-num-guesses"
             name="numGuesses"
             type="number"
             placeholder="Enter number of attempts"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           />
-          <label>Hints</label>
+          <label htmlFor="wordle-show-hints">Hints</label>
           <select
+            id="wordle-show-hints"
             name="showHints"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           >
@@ -144,6 +169,11 @@ export default function WordleBuilder() {
           >
             Generate Preview
           </button>
+          {generateError && (
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+              {generateError}
+            </p>
+          )}
           {html && (
             <button
               type="button"
@@ -171,8 +201,9 @@ export default function WordleBuilder() {
           className="mt-4 flex flex-col gap-4 text-start sm:flex-row sm:items-end"
         >
           <div className="flex flex-col gap-1">
-            <label>Saved Activity</label>
+            <label htmlFor="wordle-saved-activity">Saved Activity</label>
             <select
+              id="wordle-saved-activity"
               value={selectedActivityId}
               onChange={(e) => {
                 setSelectedActivityId(e.target.value);
@@ -189,8 +220,9 @@ export default function WordleBuilder() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label>Word</label>
+            <label htmlFor="wordle-saved-word">Word</label>
             <select
+              id="wordle-saved-word"
               value={selectedWordId}
               onChange={(e) => setSelectedWordId(e.target.value)}
               disabled={!selectedActivity}
@@ -224,6 +256,6 @@ export default function WordleBuilder() {
           className="w-full flex-1 rounded border border-gray-300"
         />
       </section>
-    </div>
+    </main>
   );
 }

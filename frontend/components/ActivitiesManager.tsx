@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   ApiRequestError,
@@ -55,22 +55,28 @@ export default function ActivitiesManager() {
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  async function loadActivities() {
-    setIsLoading(true);
-    setLoadError("");
+  const loadActivities = useCallback(async () => {
     try {
       const data = await fetchActivities();
       setActivities(data);
+      setLoadError("");
     } catch (err) {
       setLoadError(errorMessage(err));
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadActivities();
-  }, []);
+    let cancelled = false;
+    void (async () => {
+      await loadActivities();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadActivities]);
 
   function updateDraftWord(index: number, patch: Partial<DraftWord>) {
     setDraftWords((prev) =>
@@ -129,7 +135,7 @@ export default function ActivitiesManager() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-7xl flex-col items-center space-y-6 px-6 py-20">
+    <main className="mx-auto flex min-h-screen max-w-7xl flex-col items-center space-y-6 px-6 py-20">
       <section className="w-full rounded-2xl backdrop-blur">
         <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-5xl">
           Saved Activities
@@ -148,16 +154,18 @@ export default function ActivitiesManager() {
           Create New Activity
         </h2>
         <form onSubmit={handleCreateActivity} className="flex flex-col space-y-4 text-start">
-          <label>Activity Name</label>
+          <label htmlFor="create-activity-name">Activity Name</label>
           <input
+            id="create-activity-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. CVC Words - Set A"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           />
 
-          <label>Activity Type</label>
+          <label htmlFor="create-activity-type">Activity Type</label>
           <select
+            id="create-activity-type"
             value={type}
             onChange={(e) => setType(e.target.value as ActivityType)}
             className="ml-2 rounded border border-gray-300 px-2 py-1"
@@ -166,8 +174,9 @@ export default function ActivitiesManager() {
             <option value="WORDLE">Wordle</option>
           </select>
 
-          <label>Difficulty</label>
+          <label htmlFor="create-activity-difficulty">Difficulty</label>
           <select
+            id="create-activity-difficulty"
             value={difficulty}
             onChange={(e) => setDifficulty(e.target.value as Difficulty)}
             className="ml-2 rounded border border-gray-300 px-2 py-1"
@@ -177,8 +186,9 @@ export default function ActivitiesManager() {
             <option value="HARD">Hard</option>
           </select>
 
-          <label>Hints</label>
+          <label htmlFor="create-activity-hints">Hints</label>
           <select
+            id="create-activity-hints"
             value={showHints ? "yes" : "no"}
             onChange={(e) => setShowHints(e.target.value === "yes")}
             className="ml-2 rounded border border-gray-300 px-2 py-1"
@@ -189,8 +199,9 @@ export default function ActivitiesManager() {
 
           {type === "WORDLE" ? (
             <>
-              <label>Attempts</label>
+              <label htmlFor="create-activity-guesses">Attempts</label>
               <input
+                id="create-activity-guesses"
                 type="number"
                 value={numGuesses}
                 onChange={(e) => setNumGuesses(e.target.value)}
@@ -199,15 +210,17 @@ export default function ActivitiesManager() {
             </>
           ) : (
             <>
-              <label>Rows</label>
+              <label htmlFor="create-activity-rows">Rows</label>
               <input
+                id="create-activity-rows"
                 type="number"
                 value={rows}
                 onChange={(e) => setRows(e.target.value)}
                 className="ml-2 rounded border border-gray-300 px-2 py-1"
               />
-              <label>Columns</label>
+              <label htmlFor="create-activity-cols">Columns</label>
               <input
+                id="create-activity-cols"
                 type="number"
                 value={cols}
                 onChange={(e) => setCols(e.target.value)}
@@ -217,16 +230,18 @@ export default function ActivitiesManager() {
           )}
 
           <div className="space-y-3">
-            <label className="block">Words (phonemes separated by spaces)</label>
+            <span className="block">Words (phonemes separated by spaces)</span>
             {draftWords.map((word, index) => (
               <div key={index} className="ml-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
+                  aria-label={`Word ${index + 1} phonemes`}
                   value={word.phonemes}
                   onChange={(e) => updateDraftWord(index, { phonemes: e.target.value })}
                   placeholder="k æ t"
                   className="rounded border border-gray-300 px-2 py-1"
                 />
                 <input
+                  aria-label={`Word ${index + 1} English (optional)`}
                   value={word.english}
                   onChange={(e) => updateDraftWord(index, { english: e.target.value })}
                   placeholder="English word (optional)"
@@ -279,7 +294,7 @@ export default function ActivitiesManager() {
           ))}
         </div>
       </section>
-    </div>
+    </main>
   );
 }
 
@@ -360,7 +375,11 @@ function ActivityCard({
   }
 
   return (
-    <div className="rounded-xl border border-slate-300 p-4 dark:border-slate-700">
+    <div
+      data-testid="activity-card"
+      data-activity-name={activity.name}
+      className="rounded-xl border border-slate-300 p-4 dark:border-slate-700"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
@@ -382,16 +401,22 @@ function ActivityCard({
 
       <div className="mt-4 flex flex-col gap-2 text-start sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-sm">Name</label>
+          <label htmlFor={`card-name-${activity.id}`} className="text-sm">
+            Name
+          </label>
           <input
+            id={`card-name-${activity.id}`}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="rounded border border-gray-300 px-2 py-1"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm">Difficulty</label>
+          <label htmlFor={`card-difficulty-${activity.id}`} className="text-sm">
+            Difficulty
+          </label>
           <select
+            id={`card-difficulty-${activity.id}`}
             value={difficulty}
             onChange={(e) => setDifficulty(e.target.value as Difficulty)}
             className="rounded border border-gray-300 px-2 py-1"
@@ -402,8 +427,11 @@ function ActivityCard({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm">Hints</label>
+          <label htmlFor={`card-hints-${activity.id}`} className="text-sm">
+            Hints
+          </label>
           <select
+            id={`card-hints-${activity.id}`}
             value={showHints ? "yes" : "no"}
             onChange={(e) => setShowHints(e.target.value === "yes")}
             className="rounded border border-gray-300 px-2 py-1"
@@ -414,8 +442,11 @@ function ActivityCard({
         </div>
         {activity.type === "WORDLE" ? (
           <div className="flex flex-col gap-1">
-            <label className="text-sm">Attempts</label>
+            <label htmlFor={`card-guesses-${activity.id}`} className="text-sm">
+              Attempts
+            </label>
             <input
+              id={`card-guesses-${activity.id}`}
               type="number"
               value={numGuesses}
               onChange={(e) => setNumGuesses(e.target.value)}
@@ -425,8 +456,11 @@ function ActivityCard({
         ) : (
           <>
             <div className="flex flex-col gap-1">
-              <label className="text-sm">Rows</label>
+              <label htmlFor={`card-rows-${activity.id}`} className="text-sm">
+                Rows
+              </label>
               <input
+                id={`card-rows-${activity.id}`}
                 type="number"
                 value={rows}
                 onChange={(e) => setRows(e.target.value)}
@@ -434,8 +468,11 @@ function ActivityCard({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm">Columns</label>
+              <label htmlFor={`card-cols-${activity.id}`} className="text-sm">
+                Columns
+              </label>
               <input
+                id={`card-cols-${activity.id}`}
                 type="number"
                 value={cols}
                 onChange={(e) => setCols(e.target.value)}
@@ -463,12 +500,14 @@ function ActivityCard({
 
       <form onSubmit={handleAddWord} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
+          aria-label={`New word phonemes for ${activity.name}`}
           value={newWord.phonemes}
           onChange={(e) => setNewWord((prev) => ({ ...prev, phonemes: e.target.value }))}
           placeholder="k æ t"
           className="rounded border border-gray-300 px-2 py-1"
         />
         <input
+          aria-label={`New word English (optional) for ${activity.name}`}
           value={newWord.english}
           onChange={(e) => setNewWord((prev) => ({ ...prev, english: e.target.value }))}
           placeholder="English word (optional)"
@@ -532,11 +571,13 @@ function WordRow({
   return (
     <div className="flex flex-col gap-2 rounded border border-slate-200 p-2 sm:flex-row sm:items-center dark:border-slate-700">
       <input
+        aria-label="Word phonemes"
         value={phonemes}
         onChange={(e) => setPhonemes(e.target.value)}
         className="rounded border border-gray-300 px-2 py-1"
       />
       <input
+        aria-label="Word English (optional)"
         value={english}
         onChange={(e) => setEnglish(e.target.value)}
         placeholder="English word"

@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { downloadHTML } from "@/lib/helpers/exportFile";
 import { generateWordSearchHTML } from "@/lib/helpers/wordSearchBuilder";
+import { recordGenerationAttempt } from "@/lib/instrumentation";
 
 interface WordSearchFormValues {
   wordList: { phonemes: string[] }[];
@@ -20,6 +21,7 @@ interface WordSearchFormValues {
 
 export default function WordSearchBuilder() {
   const [html, setHtml] = useState("");
+  const [generateError, setGenerateError] = useState("");
 
   const [savedActivities, setSavedActivities] = useState<ApiActivity[]>([]);
   const [selectedActivityId, setSelectedActivityId] = useState("");
@@ -54,12 +56,18 @@ export default function WordSearchBuilder() {
         throw new Error("This activity has no saved words yet");
       }
 
-      const generated = generateWordSearchHTML({
-        words: full.words.map((w) => ({ phonemes: w.phonemes, english: w.english ?? undefined })),
-        rows: full.rows ?? 10,
-        cols: full.cols ?? 10,
-        showHints: full.showHints,
-      });
+      const generated = await recordGenerationAttempt(
+        "WORD_SEARCH",
+        "SAVED",
+        () =>
+          generateWordSearchHTML({
+            words: full.words.map((w) => ({ phonemes: w.phonemes, english: w.english ?? undefined })),
+            rows: full.rows ?? 10,
+            cols: full.cols ?? 10,
+            showHints: full.showHints,
+          }),
+        { activityId: full.id, wordCount: full.words.length },
+      );
       setHtml(generated);
     } catch (err) {
       setSavedError(err instanceof Error ? err.message : "Failed to generate from saved activity");
@@ -68,19 +76,31 @@ export default function WordSearchBuilder() {
     }
   }
 
-  function handleGenerateWordSearch({
+  async function handleGenerateWordSearch({
     wordList,
     rows,
     cols,
     showHints,
   }: WordSearchFormValues) {
-    const generated = generateWordSearchHTML({
-      words: wordList,
-      rows: Number(rows) || 10,
-      cols: Number(cols) || 10,
-      showHints,
-    });
-    setHtml(generated);
+    setGenerateError("");
+    try {
+      const generated = await recordGenerationAttempt(
+        "WORD_SEARCH",
+        "BUILDER",
+        () =>
+          generateWordSearchHTML({
+            words: wordList,
+            rows: Number(rows) || 10,
+            cols: Number(cols) || 10,
+            showHints,
+          }),
+        { wordCount: wordList.length },
+      );
+      setHtml(generated);
+    } catch (err) {
+      setHtml("");
+      setGenerateError(err instanceof Error ? err.message : "Failed to generate Word Search");
+    }
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -88,7 +108,7 @@ export default function WordSearchBuilder() {
     const formData = new FormData(e.currentTarget);
     const phonemeWord = String(formData.get("phonemeWord") ?? "");
 
-    handleGenerateWordSearch({
+    void handleGenerateWordSearch({
       wordList: phonemeWord
         .split("\n")
         .map((line) => line.trim())
@@ -101,7 +121,7 @@ export default function WordSearchBuilder() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-7xl flex-col items-center space-y-6 px-6 py-20">
+    <main className="mx-auto flex min-h-screen max-w-7xl flex-col items-center space-y-6 px-6 py-20">
       <section className="w-full rounded-2xl backdrop-blur">
         <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-5xl">
           Word Search Game generator
@@ -115,28 +135,32 @@ export default function WordSearchBuilder() {
       </section>
       <section className="w-full rounded-2xl py-6 backdrop-blur">
         <form onSubmit={handleSubmit} className="flex flex-col space-y-4 text-start">
-          <label>Phoneme Words</label>
+          <label htmlFor="ws-phoneme-words">Phoneme Words</label>
           <textarea
+            id="ws-phoneme-words"
             name="phonemeWord"
             placeholder="Enter phoneme words, one per line"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           />
-          <label>Rows</label>
+          <label htmlFor="ws-rows">Rows</label>
           <input
+            id="ws-rows"
             name="rows"
             type="number"
             placeholder="Enter number of rows"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           />
-          <label>Columns</label>
+          <label htmlFor="ws-columns">Columns</label>
           <input
+            id="ws-columns"
             name="columns"
             type="number"
             placeholder="Enter number of columns"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           />
-          <label>Hints</label>
+          <label htmlFor="ws-show-hints">Hints</label>
           <select
+            id="ws-show-hints"
             name="showHints"
             className="ml-2 rounded border border-gray-300 px-2 py-1"
           >
@@ -149,6 +173,11 @@ export default function WordSearchBuilder() {
           >
             Generate Preview
           </button>
+          {generateError && (
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+              {generateError}
+            </p>
+          )}
           {html && (
             <button
               type="button"
@@ -178,8 +207,9 @@ export default function WordSearchBuilder() {
           className="mt-4 flex flex-col gap-4 text-start sm:flex-row sm:items-end"
         >
           <div className="flex flex-col gap-1">
-            <label>Saved Activity</label>
+            <label htmlFor="ws-saved-activity">Saved Activity</label>
             <select
+              id="ws-saved-activity"
               value={selectedActivityId}
               onChange={(e) => setSelectedActivityId(e.target.value)}
               className="rounded border border-gray-300 px-2 py-1"
@@ -211,6 +241,6 @@ export default function WordSearchBuilder() {
           className="w-full flex-1 rounded border border-gray-300"
         />
       </section>
-    </div>
+    </main>
   );
 }

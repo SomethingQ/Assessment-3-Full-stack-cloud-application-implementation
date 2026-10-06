@@ -6,6 +6,8 @@
 // hostname.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+export const API_BASE_URL = API_URL;
+
 export type ActivityType = "WORDLE" | "WORD_SEARCH";
 export type Difficulty = "EASY" | "MEDIUM" | "HARD";
 
@@ -31,6 +33,123 @@ export interface ApiActivity {
   words: ApiWord[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface HealthStatus {
+  status: "ok" | "degraded";
+  database: "connected" | "unreachable";
+  uptimeSeconds: number;
+  timestamp: string;
+  version: string;
+}
+
+export type AlertLevel = "error" | "warning" | "info";
+export type GenerationStatus = "SUCCESS" | "FAILURE";
+export type GenerationSource = "BUILDER" | "SAVED";
+
+export interface DashboardAlert {
+  level: AlertLevel;
+  title: string;
+  message: string;
+}
+
+export interface GenerationEventRecord {
+  id: string;
+  activityType: ActivityType;
+  status: GenerationStatus;
+  source: GenerationSource;
+  wordCount: number;
+  durationMs: number;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+export interface DashboardMetrics {
+  generatedAt: string;
+  health: {
+    status: "ok" | "degraded";
+    database: "connected" | "unreachable";
+    uptimeSeconds: number;
+  };
+  summary: {
+    totalActivities: number;
+    wordleActivities: number;
+    wordSearchActivities: number;
+    totalWords: number;
+    averageWordsPerActivity: number;
+    emptyWordListActivities: number;
+    mostUsedActivityType: ActivityType | "NONE";
+    totalGenerations: number;
+    successfulGenerations: number;
+    failedGenerations: number;
+    successRate: number;
+    averageGenerationMs: number;
+    totalPageViews: number;
+    averageTimeOnPageMs: number;
+  };
+  breakdown: {
+    byActivityType: { type: ActivityType; count: number; words: number }[];
+    byDifficulty: { difficulty: Difficulty; count: number }[];
+    generationsByType: { type: ActivityType; success: number; failure: number; total: number }[];
+    generationsBySource: { source: GenerationSource; count: number }[];
+    pageViewsByPath: { path: string; views: number; averageMs: number }[];
+  };
+  recent: {
+    generations: GenerationEventRecord[];
+  };
+  alerts: DashboardAlert[];
+}
+
+export interface TimeseriesPoint {
+  date: string;
+  activities: number;
+  generationsSuccess: number;
+  generationsFailure: number;
+  pageViews: number;
+}
+
+export interface ReportMetrics {
+  generatedAt: string;
+  topActivities: {
+    id: string;
+    name: string;
+    type: ActivityType;
+    difficulty: Difficulty;
+    wordCount: number;
+    generationCount: number;
+    updatedAt: string;
+  }[];
+  generationLog: GenerationEventRecord[];
+  slowestGenerations: { id: string; activityType: ActivityType; durationMs: number; createdAt: string }[];
+  emptyActivities: { id: string; name: string; type: ActivityType; createdAt: string }[];
+}
+
+export interface GenerationEventInput {
+  activityType: ActivityType;
+  status: GenerationStatus;
+  source?: GenerationSource;
+  activityId?: string;
+  wordCount?: number;
+  durationMs?: number;
+  errorMessage?: string;
+}
+
+export interface PageViewInput {
+  path: string;
+  sessionId?: string;
+  durationMs?: number;
+}
+
+export interface SimulateInput {
+  activities?: number;
+  generations?: number;
+  pageViews?: number;
+}
+
+export interface SimulateResult {
+  activitiesCreated: number;
+  generationsCreated: number;
+  pageViewsCreated: number;
 }
 
 export interface WordInput {
@@ -138,6 +257,44 @@ export function deleteWord(wordId: string): Promise<void> {
   return request<void>(`/api/words/${wordId}`, { method: "DELETE" });
 }
 
-export function checkHealth(): Promise<{ status: string }> {
-  return request<{ status: string }>(`/health`);
+export function checkHealth(): Promise<HealthStatus> {
+  return request<HealthStatus>(`/health`);
+}
+
+export function fetchDashboardMetrics(): Promise<DashboardMetrics> {
+  return request<DashboardMetrics>(`/api/metrics/dashboard`);
+}
+
+export function fetchTimeseries(days = 14): Promise<TimeseriesPoint[]> {
+  return request<TimeseriesPoint[]>(`/api/metrics/timeseries?days=${days}`);
+}
+
+export function fetchReportMetrics(): Promise<ReportMetrics> {
+  return request<ReportMetrics>(`/api/metrics/report`);
+}
+
+// Fire-and-forget instrumentation call recorded after each generation attempt.
+export function reportGeneration(input: GenerationEventInput): Promise<unknown> {
+  return request<unknown>(`/api/events/generation`, {
+    method: "POST",
+    body: JSON.stringify(input),
+    keepalive: true,
+  });
+}
+
+// Fire-and-forget time-on-page beacon. Errors are swallowed by the caller so
+// leaving a page never surfaces a console error to the user.
+export function reportPageView(input: PageViewInput): Promise<unknown> {
+  return request<unknown>(`/api/events/pageview`, {
+    method: "POST",
+    body: JSON.stringify(input),
+    keepalive: true,
+  });
+}
+
+export function simulateData(input: SimulateInput): Promise<SimulateResult> {
+  return request<SimulateResult>(`/api/simulate`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

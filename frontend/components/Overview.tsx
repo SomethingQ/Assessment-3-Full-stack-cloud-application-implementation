@@ -36,17 +36,26 @@ export default function Overview() {
         </div>
         <div className="text-start">
           <h2 className="mb-4 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
-            Frontend Build
+            System Overview
           </h2>
           <p className="mb-2 text-lg leading-8 text-slate-600 dark:text-slate-300">
             The frontend is built with React, TypeScript, and Tailwind CSS, and
             demonstrates responsive page design, reusable components,
             navigation, and client-side generation of standalone HTML activity
-            files.
+            files. The backend is an Express + Prisma API backed by PostgreSQL,
+            persisted through the Docker Compose stack.
           </p>
           <p className="mb-2 text-lg leading-8 text-slate-600 dark:text-slate-300">
-            Backend functionality, databases, and more advanced activity
-            generation are out of scope for this version.
+            The data-driven dashboard adds database-backed usage statistics,
+            health monitoring, alerts and reporting views. Every generation
+            attempt is recorded so the system can report successful and failed
+            generations, average generation time, average time on page and the
+            most-used activity type.
+          </p>
+          <p className="mb-2 text-lg leading-8 text-slate-600 dark:text-slate-300">
+            The system is tested with Playwright end-to-end tests, JMeter load
+            testing at staged traffic levels, and Lighthouse accessibility
+            audits.
           </p>
         </div>
 
