@@ -53,6 +53,40 @@ export const activityQuerySchema = z.object({
   type: activityTypeSchema.optional(),
 });
 
+// Number of days of history to aggregate for reporting time series.
+export const timeseriesQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).optional().default(14),
+});
+
+// Client-side generation attempts reported by the Wordle / Word Search
+// builders. These feed the success/failure counters on the dashboard.
+export const generationEventSchema = z.object({
+  activityType: activityTypeSchema,
+  status: z.enum(["SUCCESS", "FAILURE"]),
+  source: z.enum(["BUILDER", "SAVED"]).optional().default("BUILDER"),
+  activityId: z.string().trim().min(1).optional(),
+  wordCount: z.number().int().min(0).max(5000).optional().default(0),
+  durationMs: z.number().int().min(0).max(600000).optional().default(0),
+  errorMessage: z.string().trim().max(500).optional(),
+});
+
+// Time-on-page beacons sent when a visitor leaves a page.
+export const pageViewSchema = z.object({
+  path: z.string().trim().min(1).max(200),
+  sessionId: z.string().trim().max(120).optional(),
+  durationMs: z.number().int().min(0).max(24 * 60 * 60 * 1000).optional().default(0),
+});
+
+// Bulk simulated records used to populate the dashboard for reporting demos.
+export const simulateSchema = z.object({
+  activities: z.number().int().min(0).max(200).optional().default(0),
+  generations: z.number().int().min(0).max(5000).optional().default(0),
+  pageViews: z.number().int().min(0).max(5000).optional().default(0),
+});
+
 export type WordInput = z.infer<typeof wordInputSchema>;
 export type ActivityCreateInput = z.infer<typeof activityCreateSchema>;
 export type ActivityUpdateInput = z.infer<typeof activityUpdateSchema>;
+export type GenerationEventInput = z.infer<typeof generationEventSchema>;
+export type PageViewInput = z.infer<typeof pageViewSchema>;
+export type SimulateInput = z.infer<typeof simulateSchema>;

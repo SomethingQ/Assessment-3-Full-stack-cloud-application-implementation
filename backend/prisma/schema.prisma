@@ -31,6 +31,21 @@ enum Difficulty {
   HARD
 }
 
+// Outcome of a single client-side activity generation attempt. The builders
+// run in the browser, so the frontend reports each attempt here to give the
+// dashboard reliable success / failure counts.
+enum GenerationStatus {
+  SUCCESS
+  FAILURE
+}
+
+// Where the generation input came from - either the free-form builder form or
+// a word list previously saved through the Activities CRUD page.
+enum GenerationSource {
+  BUILDER
+  SAVED
+}
+
 model Activity {
   id         String       @id @default(cuid())
   name       String
@@ -46,6 +61,7 @@ model Activity {
   cols       Int?
 
   words      Word[]
+  generations GenerationEvent[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -72,4 +88,45 @@ model Word {
 
   @@index([activityId])
   @@map("words")
+}
+
+// Database-backed observability record for every activity generation attempt.
+// Stores the output type, whether generation succeeded, how long it took and
+// how many words were included so the dashboard can report success/failure
+// counts, average generation time and activity-type usage.
+model GenerationEvent {
+  id           String           @id @default(cuid())
+
+  // Optional link to a saved activity when generating from stored data.
+  activityId   String?
+  activity     Activity?        @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  activityType ActivityType
+  status       GenerationStatus
+  source       GenerationSource @default(BUILDER)
+  wordCount    Int              @default(0)
+  durationMs   Int              @default(0)
+  errorMessage String?
+
+  createdAt    DateTime         @default(now())
+
+  @@index([createdAt])
+  @@index([activityType])
+  @@index([status])
+  @@index([activityId])
+  @@map("generation_events")
+}
+
+// Page-view records used to derive "average time on page" and the most viewed
+// reporting views. The client sends a duration when the visitor leaves a page.
+model PageView {
+  id         String   @id @default(cuid())
+  path       String
+  sessionId  String?
+  durationMs Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([path])
+  @@index([createdAt])
+  @@map("page_views")
 }
