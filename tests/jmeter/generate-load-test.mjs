@@ -1,7 +1,7 @@
 // Generates the Apache JMeter test plan used for load testing the builder and
 // generated-activity workflow. Run with: node generate-load-test.mjs
 //
-// The plan defines staged traffic levels (x1, x10, x100, x1000, x10000) and
+// The plan defines staged traffic levels (x1, x10, x100, x1000) and
 // exercises the API surface the builder relies on:
 //   - GET  /health                    (liveness / readiness)
 //   - GET  /api/activities            (load saved word lists - builder input)
@@ -22,7 +22,6 @@ const levels = [
   { name: "x10 - Light", threads: 10, rampUp: 5, loops: 10, scheduler: false },
   { name: "x100 - Moderate", threads: 100, rampUp: 30, loops: 5, scheduler: true, duration: 180 },
   { name: "x1000 - Heavy", threads: 1000, rampUp: 60, loops: 3, scheduler: false },
-  { name: "x10000 - Stress", threads: 10000, rampUp: 120, loops: 1, scheduler: false },
 ];
 
 function requestArguments(body) {

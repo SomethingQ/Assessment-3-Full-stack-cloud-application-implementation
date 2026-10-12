@@ -1,15 +1,4 @@
 // Prisma schema for the Phoneme Activity Builder backend.
-//
-// Design notes (see nextjs/lab-instructions.txt for rationale):
-// - Only the teacher-authored word list, activity metadata and generation
-//   settings are persisted. Static reference data such as the IPA-to-hint
-//   lookup table lives in the frontend (lib/helpers/exportFile.ts) and is
-//   NOT duplicated here.
-// - The Word Search grid layout is generated on demand from the word list,
-//   so only the word list itself needs to be stored, not the grid.
-// - Phonemes are stored as a Postgres text array (String[]) so each entry
-//   can hold a multi-character IPA symbol (e.g. "tʃ", "dʒ") rather than a
-//   single character.
 
 generator client {
   provider = "prisma-client-js"
@@ -31,16 +20,11 @@ enum Difficulty {
   HARD
 }
 
-// Outcome of a single client-side activity generation attempt. The builders
-// run in the browser, so the frontend reports each attempt here to give the
-// dashboard reliable success / failure counts.
 enum GenerationStatus {
   SUCCESS
   FAILURE
 }
 
-// Where the generation input came from - either the free-form builder form or
-// a word list previously saved through the Activities CRUD page.
 enum GenerationSource {
   BUILDER
   SAVED
@@ -53,10 +37,8 @@ model Activity {
   difficulty Difficulty   @default(MEDIUM)
   showHints  Boolean      @default(true)
 
-  // Wordle-only setting (number of guesses allowed).
   numGuesses Int?
 
-  // Word Search-only settings (grid dimensions).
   rows       Int?
   cols       Int?
 
@@ -90,10 +72,6 @@ model Word {
   @@map("words")
 }
 
-// Database-backed observability record for every activity generation attempt.
-// Stores the output type, whether generation succeeded, how long it took and
-// how many words were included so the dashboard can report success/failure
-// counts, average generation time and activity-type usage.
 model GenerationEvent {
   id           String           @id @default(cuid())
 
@@ -117,8 +95,6 @@ model GenerationEvent {
   @@map("generation_events")
 }
 
-// Page-view records used to derive "average time on page" and the most viewed
-// reporting views. The client sends a duration when the visitor leaves a page.
 model PageView {
   id         String   @id @default(cuid())
   path       String

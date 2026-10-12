@@ -4,9 +4,9 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// Deterministic demo data so the dashboard and reporting views have content
-// immediately after `npm run prisma:seed`. Safe to run repeatedly: it only
-// adds rows, it never deletes existing records.
+// Curated demo data so a new user immediately has usable Wordle and Word Search
+// activities to load, plus a little observability data for the dashboard.
+// Safe to run repeatedly: it skips if any activities already exist.
 async function main() {
   const existing = await prisma.activity.count();
   if (existing > 0) {
@@ -14,9 +14,9 @@ async function main() {
     return;
   }
 
-  const cat = await prisma.activity.create({
+  const cvcSearch = await prisma.activity.create({
     data: {
-      name: "CVC Words - Set A",
+      name: "CVC Words - Word Search",
       type: "WORD_SEARCH",
       difficulty: "EASY",
       showHints: true,
@@ -33,7 +33,26 @@ async function main() {
     },
   });
 
-  const digraphs = await prisma.activity.create({
+  const digraphSearch = await prisma.activity.create({
+    data: {
+      name: "Digraphs - Word Search",
+      type: "WORD_SEARCH",
+      difficulty: "MEDIUM",
+      showHints: true,
+      rows: 12,
+      cols: 12,
+      words: {
+        create: [
+          { phonemes: ["ʃ", "ɪ", "p"], english: "ship", position: 0 },
+          { phonemes: ["tʃ", "æ", "t"], english: "chat", position: 1 },
+          { phonemes: ["θ", "ɪ", "n"], english: "thin", position: 2 },
+          { phonemes: ["dʒ", "æ", "m"], english: "jam", position: 3 },
+        ],
+      },
+    },
+  });
+
+  const digraphWordle = await prisma.activity.create({
     data: {
       name: "Digraphs - Wordle",
       type: "WORDLE",
@@ -50,21 +69,27 @@ async function main() {
     },
   });
 
-  // An intentionally empty activity so the dashboard shows an empty-word-list
-  // warning during the observability demonstration.
-  await prisma.activity.create({
+  const longVowelWordle = await prisma.activity.create({
     data: {
-      name: "Draft Activity (no words)",
+      name: "Long Vowels - Wordle",
       type: "WORDLE",
-      difficulty: "HARD",
-      numGuesses: 5,
+      difficulty: "EASY",
+      showHints: true,
+      numGuesses: 6,
+      words: {
+        create: [
+          { phonemes: ["b", "ʉː", "t"], english: "boot", position: 0 },
+          { phonemes: ["b", "æɪ", "t"], english: "bait", position: 1 },
+          { phonemes: ["l", "ɔ", "ɡ"], english: "log", position: 2 },
+        ],
+      },
     },
   });
 
   await prisma.generationEvent.createMany({
     data: [
       {
-        activityId: cat.id,
+        activityId: cvcSearch.id,
         activityType: "WORD_SEARCH",
         status: "SUCCESS",
         source: "SAVED",
@@ -72,7 +97,7 @@ async function main() {
         durationMs: 240,
       },
       {
-        activityId: cat.id,
+        activityId: digraphSearch.id,
         activityType: "WORD_SEARCH",
         status: "SUCCESS",
         source: "SAVED",
@@ -80,7 +105,16 @@ async function main() {
         durationMs: 310,
       },
       {
-        activityId: digraphs.id,
+        activityId: digraphSearch.id,
+        activityType: "WORD_SEARCH",
+        status: "FAILURE",
+        source: "BUILDER",
+        wordCount: 0,
+        durationMs: 90,
+        errorMessage: "No words fitted the grid",
+      },
+      {
+        activityId: digraphWordle.id,
         activityType: "WORDLE",
         status: "SUCCESS",
         source: "SAVED",
@@ -88,13 +122,20 @@ async function main() {
         durationMs: 180,
       },
       {
-        activityId: digraphs.id,
+        activityId: longVowelWordle.id,
         activityType: "WORDLE",
-        status: "FAILURE",
+        status: "SUCCESS",
+        source: "SAVED",
+        wordCount: 3,
+        durationMs: 200,
+      },
+      {
+        activityId: longVowelWordle.id,
+        activityType: "WORDLE",
+        status: "SUCCESS",
         source: "BUILDER",
-        wordCount: 0,
-        durationMs: 90,
-        errorMessage: "Empty word list",
+        wordCount: 3,
+        durationMs: 150,
       },
     ],
   });
@@ -109,7 +150,9 @@ async function main() {
     ],
   });
 
-  console.log("Seed complete: demo activities, generation events and page views created.");
+  console.log(
+    "Seed complete: 4 sample activities (2 Word Search, 2 Wordle), generation events and page views created.",
+  );
 }
 
 main()

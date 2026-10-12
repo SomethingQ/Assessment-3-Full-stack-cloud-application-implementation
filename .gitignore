@@ -29,5 +29,5 @@ dist-ssr
 *.sw?
 
 # JMeter load test output
-tests/jmeter/results.jtl
+tests/jmeter/*.jtl
 tests/jmeter/report/
